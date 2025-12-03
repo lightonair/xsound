@@ -34,10 +34,11 @@ server_scripts {
 	"addon/**/server/*.lua",
 }
 
-ui_page "html/index.html"
+ui_page "html/index2.html"
 
 files {
 	"html/index.html",
+	"html/index2.html",
 
 	"html/scripts/listener.js",
 	"html/scripts/SoundPlayer.js",

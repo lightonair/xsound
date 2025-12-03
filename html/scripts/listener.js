@@ -10,9 +10,9 @@ let playerPos = [ -90000, -90000, -90000 ];
 let refreshTime = 300;
 
 $(function () {
-    $.post('https://xsound/init');
+    $.post("https://xsound/init");
 
-    window.addEventListener('message', function (event) {
+    window.addEventListener("message", function (event) {
         const item = event.data;
         let sound;
         let sd;
@@ -233,3 +233,11 @@ function updateVolumeSounds() {
         }
     }
 }
+
+
+// We will ping the client side that the DUI didnt crashed, once the ping will stop we will force recreate
+// the DUI as that would be either indication of high ram usage or crash
+// This is temporary fix for https://github.com/Xogy/xsound/issues/70#issuecomment-3568264013
+setInterval(function(){
+    $.post("https://xsound/ping");
+}, 2000);

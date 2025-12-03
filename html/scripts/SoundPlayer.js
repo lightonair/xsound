@@ -18,6 +18,8 @@ class SoundPlayer {
         this.load = false;
         this.isMuted_ = false;
         this.audioPlayer = null;
+
+        this.checkReady = null;
     }
 
     setYoutubePlayerReady(result) {
@@ -166,51 +168,76 @@ class SoundPlayer {
             });
             $("#" + this.div_id).remove();
         } else {
+            $.post('https://xsound/events', JSON.stringify({ type: "onLoading", id: this.getName() }));
+
             this.isYoutube = true;
             this.setYoutubePlayerReady(false);
             $("#" + this.div_id).remove();
-            $("body").append("<div id='" + this.div_id + "'></div>");
-            this.yPlayer = new YT.Player(this.div_id, {
 
-                startSeconds: Number,
+            const url = "https://cfx-nui-xsound/html/index2.html?url=" + sanitizeURL(this.getUrlSound());
+            $("body").append("<iframe id='" + this.div_id + "' src='" + url + "' allow='autoplay' style='opacity: 0;'></iframe>");
 
-                videoId: link,
-                origin: window.location.href,
-                enablejsapi: 1,
-                width: "0",
-                height: "0",
-                playerVars: {
-                    autoplay: 0,
-                    controls: 0,
-                    quality: 'auto',
-                },
-                events: {
-                    'onReady': (event) => {
-                        event.target.unMute();
-                        event.target.setVolume(0);
-                        event.target.playVideo();
-                        isReady(this.getName());
-                        $.post('https://xsound/events', JSON.stringify({ type: "onLoading", id: this.getName() }));
-                    },
-                    'onStateChange': (event) => {
-                        if (event.data == YT.PlayerState.ENDED) {
+            let attempts = 0;
+            const maxAttempts = 50;
+
+            let frame = document.getElementById(this.div_id);
+            this.checkReady = setInterval(() => {
+                attempts++;
+
+                if (frame && frame.contentWindow && frame.contentWindow.yPlayer) {
+                    this.releaseCheckReadyTimer();
+                    this.setYoutubePlayerReady(true);
+
+                    this.yPlayer = frame.contentWindow.yPlayer;
+                    this.yPlayer.addEventListener('onStateChange', (event) => {
+                        if (event.data == 0) {
                             ended(this.getName());
                         }
-                    }
+                    });
+
+                    isReady(this.getName());
+                } else if (attempts >= maxAttempts) {
+                    this.releaseCheckReadyTimer();
+                    this.cleanIframe();
                 }
-            });
+            }, 100);
+        }
+    }
+
+    cleanIframe() {
+        let frame = document.getElementById(this.div_id);
+
+        if (frame) {
+            if (frame.contentWindow && typeof frame.contentWindow.clearMe === "function") {
+                frame.contentWindow.clearMe();
+            }
+
+            frame.src = "about:blank";
+
+            setTimeout(function () {
+                frame.remove();
+            }, 100);
+        }
+    }
+
+    releaseCheckReadyTimer() {
+        if (this.checkReady != null) {
+            clearInterval(this.checkReady);
+            this.checkReady = null;
         }
     }
 
     destroyYoutubeApi() {
         if (this.yPlayer) {
-            if (typeof this.yPlayer.stopVideo === "function" && typeof this.yPlayer.destroy === "function") {
+            if (typeof this.yPlayer.stopVideo === "function") {
                 this.yPlayer.stopVideo();
-                this.yPlayer.destroy();
-                this.youtubePlayerReady = false;
-                this.yPlayer = null;
             }
+            this.youtubePlayerReady = false;
+            this.yPlayer = null;
+
+            this.cleanIframe();
         }
+        this.releaseCheckReadyTimer();
     }
 
     delete() {
@@ -219,8 +246,9 @@ class SoundPlayer {
             this.audioPlayer.stop();
             this.audioPlayer.unload();
         }
+
         this.audioPlayer = null;
-        $("#" + this.div_id).remove();
+        this.releaseCheckReadyTimer();
     }
 
     updateVolume(dd, maxd) {
@@ -246,7 +274,7 @@ class SoundPlayer {
                 this.audioPlayer.play();
             }
         } else {
-            if (this.isYoutubePlayerReady()) {
+            if (this.isYoutubePlayerReady() && this.yPlayer) {
                 this.yPlayer.playVideo();
             }
         }
@@ -256,7 +284,7 @@ class SoundPlayer {
         if (!this.isAudioYoutubePlayer()) {
             if (this.audioPlayer != null) this.audioPlayer.pause();
         } else {
-            if (this.isYoutubePlayerReady()) this.yPlayer.pauseVideo();
+            if (this.isYoutubePlayerReady() && this.yPlayer) this.yPlayer.pauseVideo();
         }
     }
 
@@ -264,7 +292,7 @@ class SoundPlayer {
         if (!this.isAudioYoutubePlayer()) {
             if (this.audioPlayer != null) this.audioPlayer.play();
         } else {
-            if (this.isYoutubePlayerReady()) this.yPlayer.playVideo();
+            if (this.isYoutubePlayerReady() && this.yPlayer) this.yPlayer.playVideo();
         }
     }
 
@@ -290,12 +318,15 @@ class SoundPlayer {
         if (!this.isAudioYoutubePlayer()) {
             this.audioPlayer.seek(time);
         } else {
-            this.yPlayer.seekTo(time);
+            if (this.yPlayer && typeof this.yPlayer.seekTo === 'function') {
+                this.yPlayer.seekTo(time);
+            }
         }
     }
 
     isPlaying() {
-        if (this.isAudioYoutubePlayer()) return this.isYoutubePlayerReady() && this.yPlayer.getPlayerState() == 1;
-        else return this.audioPlayer != null && this.audioPlayer.playing();
+        if (this.isAudioYoutubePlayer()) {
+            return this.isYoutubePlayerReady() && this.yPlayer && this.yPlayer.getPlayerState && this.yPlayer.getPlayerState() == 1;
+        } else return this.audioPlayer != null && this.audioPlayer.playing();
     }
 }

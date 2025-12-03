@@ -2,6 +2,91 @@ globalOptionsCache = {}
 isPlayerCloseToMusic = false
 disableMusic = false
 
+-- Temporary "fix" so the main browser doesnt crash but instead of only the isolated one
+-- This is temporary fix for https://github.com/Xogy/xsound/issues/70#issuecomment-3568264013
+GlobalSoundDui = nil
+local pingCount = 6
+local MAX_PING = 6
+local haveCrashed = false
+local DUI_URL = "nui://xsound/html/index.html"
+
+CreateThread(function()
+    local resourceName = GetCurrentResourceName()
+    GlobalSoundDui = CreateDui(DUI_URL, 640, 480)
+
+    while true do
+        Wait(2100)
+        pingCount = pingCount - 1
+        if pingCount == 0 then
+            pingCount = MAX_PING
+
+            if not haveCrashed then
+                for k, v in pairs(soundInfo) do
+                    v.wasSilented = false
+                    DestroySilent(v.id)
+                end
+            end
+            haveCrashed = true
+
+            if GlobalSoundDui then
+                DestroyDui(GlobalSoundDui)
+            end
+
+            Wait(1000)
+            GlobalSoundDui = CreateDui(DUI_URL, 640, 480)
+        end
+    end
+end)
+
+RegisterNUICallback("ping", function(data, cb)
+    if pingCount ~= MAX_PING then
+        pingCount = pingCount + 1
+    end
+
+    if cb then
+        cb(true)
+    end
+end)
+
+RegisterNUICallback("init", function(data, cb)
+    pingCount = MAX_PING
+
+    if haveCrashed then
+        haveCrashed = false
+
+        local playerPos = GetEntityCoords(PlayerPedId())
+        for k, v in pairs(soundInfo) do
+            if not v.isDynamic then
+                if not isPaused(v.id) then
+                    v.wasSilented = true
+                    PlayMusicFromCache(v)
+                end
+            elseif v.position ~= nil and v.isDynamic then
+                if #(v.position - playerPos) < (v.distance + config.distanceBeforeUpdatingPos) then
+                    if not isPaused(v.id) then
+                        v.wasSilented = true
+                        PlayMusicFromCache(v)
+                    end
+                end
+            end
+        end
+
+        UpdatePlayerPositionInNUI()
+        SendNUIMessage({ status = "unmuteAll" })
+    end
+
+    if cb then
+        cb(true)
+    end
+end)
+
+function SendNUIMessage(data)
+    if GlobalSoundDui and IsDuiAvailable(GlobalSoundDui) then
+        SendDuiMessage(GlobalSoundDui, json.encode(data))
+    end
+end
+-- This is a temporary fix for https://github.com/Xogy/xsound/issues/70#issuecomment-3568264013
+
 function getDefaultInfo()
     return {
         volume = 1.0,
@@ -116,6 +201,7 @@ function PlayMusicFromCache(data)
             if getInfo(data.id).maxDuration then
                 setTimeStamp(data.id, data.timeStamp or 0)
             end
+
             Distance(data.id, data.distance)
         end)
     end

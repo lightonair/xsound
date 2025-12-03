@@ -21,29 +21,13 @@ function isYoutubeURL(url) {
     return getYoutubeUrlId(url) !== "";
 }
 
+let durationIdId = 0;
+
 function getDurationOfMusicFromURL(url, timeStamp) {
     url = sanitizeURL(url);
+    const link = getYoutubeUrlId(url);
 
-    if (isYoutubeURL(url)) {
-        let ytPlayer = new YT.Player("trash", {
-            height: '0',
-            width: '0',
-            videoId: getYoutubeUrlId(url),
-            events: {
-                'onReady': function (event) {
-                    timeStamp(event.target.getDuration());
-                    ytPlayer.stopVideo();
-                    ytPlayer.destroy();
-                    ytPlayer = null;
-                },
-                'onError': function (event) {
-                    timeStamp(null);
-                    ytPlayer.destroy();
-                    ytPlayer = null;
-                },
-            }
-        });
-    } else {
+    if (link === "") {
         let audioPlayer = new Howl({
             src: [ url ],
             loop: false,
@@ -62,6 +46,29 @@ function getDurationOfMusicFromURL(url, timeStamp) {
                 audioPlayer = null;
             },
         });
+    } else {
+        const div_id = "duration_temp_" + (durationIdId++);
+        const iframeUrl = "https://cfx-nui-xsound/html/index2.html?url=" + url;
+
+        $("body").append("<iframe id='" + div_id + "' src='" + iframeUrl + "' allow='autoplay' style='display:none;'></iframe>");
+
+        let attempts = 0;
+        const maxAttempts = 50;
+
+        let checkReady = setInterval(() => {
+            attempts++;
+            let frame = document.getElementById(div_id);
+            if (frame && frame.contentWindow && frame.contentWindow.yPlayer) {
+                clearInterval(checkReady);
+                const duration = frame.contentWindow.yPlayer.getDuration();
+                timeStamp(duration);
+                $("#" + div_id).remove();
+            } else if (attempts >= maxAttempts) {
+                clearInterval(checkReady);
+                timeStamp(null);
+                $("#" + div_id).remove();
+            }
+        }, 100);
     }
 }
 
