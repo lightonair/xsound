@@ -175,7 +175,8 @@ class SoundPlayer {
             $("#" + this.div_id).remove();
 
             const url = "https://cfx-nui-xsound/html/index2.html?url=" + sanitizeURL(this.getUrlSound());
-            $("body").append("<iframe id='" + this.div_id + "' src='" + url + "' allow='autoplay' style='opacity: 0;'></iframe>");
+
+            $("<iframe>", {  id: this.div_id, src: url, }).css({ "opacity": "0", }).appendTo("body");
 
             let attempts = 0;
             const maxAttempts = 50;
