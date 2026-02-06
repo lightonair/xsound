@@ -129,15 +129,13 @@ function ended(soundName) {
 }
 
 function sendMaxDurationToClient(item) {
-    if (!item.hasMaxTime || !item.dynamic) {
-        getDurationOfMusicFromURL(item.url, function (time) {
-            if (time) {
-                $.post('https://xsound/data_status', JSON.stringify({
-                    time: time,
-                    type: "maxDuration",
-                    id: item.name,
-                }));
-            }
-        });
-    }
+    getDurationOfMusicFromURL(item.url, function (time) {
+        if (time) {
+            $.post('https://xsound/data_status', JSON.stringify({
+                time: time,
+                type: "maxDuration",
+                id: item.name,
+            }));
+        }
+    });
 }

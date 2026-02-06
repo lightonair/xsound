@@ -157,7 +157,6 @@ function setSoundURL(name, url)
         soundInfo[name].url = url
         SendNUIMessage({
             status = "changeurl",
-            hasMaxTime = false,
             name = name,
             url = url,
         })

@@ -2,6 +2,7 @@ RegisterNUICallback("init", function(data, cb)
     SendNUIMessage({
         status = "init",
         time = config.RefreshTime,
+        debug = config.debug,
     })
 
     if cb then
@@ -18,7 +19,6 @@ RegisterNUICallback("data_status", function(data, cb)
             TriggerEvent("xSound:songStopPlaying", data.id)
         end
         if data.type == "maxDuration" then
-            soundInfo[data.id].hasMaxTime = true
             soundInfo[data.id].maxDuration = data.time
         end
     end

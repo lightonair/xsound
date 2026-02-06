@@ -2,6 +2,8 @@ const soundList = [];
 let closeToPlayer = [];
 var IsAllMuted = false;
 
+let debug = false;
+
 let updateVolumeSoundTimer;
 let updateCacheTimer;
 
@@ -19,6 +21,7 @@ $(function () {
         switch (item.status) {
             case "init":
                 refreshTime = item.time;
+                debug = item.debug;
                 break;
             case "position":
                 playerPos = [ item.x, item.y, item.z ];
@@ -68,6 +71,9 @@ $(function () {
                 sd.play();
                 soundList[item.name] = sd;
                 break;
+            case "getMaxTime":
+                sendMaxDurationToClient(item);
+                break;
 
             case "distance":
                 sound = soundList[item.name];
@@ -108,7 +114,9 @@ $(function () {
                     sound.pause();
                 }
                 break;
+            case "getTimeStamp":
 
+                break;
             case "delete":
                 sound = soundList[item.name];
                 if (sound != null) {
@@ -238,6 +246,6 @@ function updateVolumeSounds() {
 // We will ping the client side that the DUI didnt crashed, once the ping will stop we will force recreate
 // the DUI as that would be either indication of high ram usage or crash
 // This is temporary fix for https://github.com/Xogy/xsound/issues/70#issuecomment-3568264013
-setInterval(function(){
+setInterval(function () {
     $.post("https://xsound/ping");
 }, 2000);

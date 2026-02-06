@@ -11,19 +11,22 @@ local haveCrashed = false
 local DUI_URL = "nui://xsound/html/index.html"
 
 CreateThread(function()
-    local resourceName = GetCurrentResourceName()
-    GlobalSoundDui = CreateDui(DUI_URL, 640, 480)
+    GlobalSoundDui = CreateDui(DUI_URL, 1920, 1080)
+    CreateDuiText(GlobalSoundDui)
 
     while true do
         Wait(2100)
         pingCount = pingCount - 1
+
         if pingCount == 0 then
             pingCount = MAX_PING
 
             if not haveCrashed then
                 for k, v in pairs(soundInfo) do
                     v.wasSilented = false
-                    DestroySilent(v.id)
+                    if DestroySilent then
+                        DestroySilent(v.id)
+                    end
                 end
             end
             haveCrashed = true
@@ -33,7 +36,9 @@ CreateThread(function()
             end
 
             Wait(1000)
-            GlobalSoundDui = CreateDui(DUI_URL, 640, 480)
+
+            GlobalSoundDui = CreateDui(DUI_URL, 1920, 1080)
+            CreateDuiText(GlobalSoundDui)
         end
     end
 end)

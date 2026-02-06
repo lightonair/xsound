@@ -174,9 +174,9 @@ class SoundPlayer {
             this.setYoutubePlayerReady(false);
             $("#" + this.div_id).remove();
 
-            const url = "https://cfx-nui-xsound/html/index2.html?url=" + sanitizeURL(this.getUrlSound());
+            const url = "https://cfx-nui-xsound/html/index2.html?url=" + sanitizeURL(this.getUrlSound() + "&debug=" + debug);
 
-            $("<iframe>", {  id: this.div_id, src: url, }).css({ "opacity": "0", }).appendTo("body");
+            $("<iframe>", { id: this.div_id, src: url, }).css({ "width": "320px", "height": "180px" }).appendTo("body");
 
             let attempts = 0;
             const maxAttempts = 50;
