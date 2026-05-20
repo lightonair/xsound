@@ -21,10 +21,35 @@ function isYoutubeURL(url) {
     return getYoutubeUrlId(url) !== "";
 }
 
+function getSoundCloudUrl(url) {
+    if (url.indexOf("soundcloud.com") !== -1) {
+        return url;
+    }
+    return "";
+}
+
+function isSoundCloudURL(url) {
+    return getSoundCloudUrl(url) !== "";
+}
+
 function getDurationOfMusicFromURL(url, timeStamp) {
     url = sanitizeURL(url);
 
-    if (isYoutubeURL(url)) {
+    if (isSoundCloudURL(url)) {
+        const probeId = "sc_probe_" + Date.now();
+        const iframe = document.createElement("iframe");
+        iframe.id = probeId;
+        iframe.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url) + "&auto_play=false";
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+        const widget = SC.Widget(iframe);
+        widget.bind(SC.Widget.Events.READY, () => {
+            widget.getCurrentSound((sound) => {
+                document.body.removeChild(iframe);
+                timeStamp(sound ? sound.duration / 1000 : null);
+            });
+        });
+    } else if (isYoutubeURL(url)) {
         let ytPlayer = new YT.Player("trash", {
             height: '0',
             width: '0',
@@ -80,6 +105,10 @@ function isReady(soundName) {
 
         if (sound.isAudioYoutubePlayer()) {
             sound.setYoutubePlayerReady(true);
+        }
+
+        if (sound.isAudioSoundCloudPlayer()) {
+            sound.setSoundCloudReady(true);
         }
 
         if (sound.isDynamic()) {

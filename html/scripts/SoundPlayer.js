@@ -15,6 +15,11 @@ class SoundPlayer {
         this.div_id = "myAudio_" + identifierCounterVariable++;
         this.loop = false;
         this.isYoutube = false;
+        this.isSoundCloud = false;
+        this.scWidget = null;
+        this.scReady = false;
+        this.scIsPlaying = false;
+        this.scDuration = 0;
         this.load = false;
         this.isMuted_ = false;
         this.audioPlayer = null;
@@ -30,6 +35,14 @@ class SoundPlayer {
 
     isAudioYoutubePlayer() {
         return this.isYoutube;
+    }
+
+    isAudioSoundCloudPlayer() {
+        return this.isSoundCloud;
+    }
+
+    setSoundCloudReady(result) {
+        this.scReady = result;
     }
 
     getDistance() {
@@ -81,9 +94,8 @@ class SoundPlayer {
     }
 
     getAudioCurrentTime() {
-        if (this.isAudioYoutubePlayer()) {
-            return this.getYoutubePlayer().getDuration();
-        }
+        if (this.isAudioSoundCloudPlayer()) return this.scDuration;
+        if (this.isAudioYoutubePlayer()) return this.getYoutubePlayer().getDuration();
         return this.getAudioPlayer()._duration;
     }
 
@@ -113,7 +125,7 @@ class SoundPlayer {
     }
 
     setLoop(result) {
-        if (!this.isAudioYoutubePlayer()) {
+        if (!this.isAudioYoutubePlayer() && !this.isAudioSoundCloudPlayer()) {
             if (this.audioPlayer != null) {
                 this.audioPlayer.loop(result);
             }
@@ -134,7 +146,9 @@ class SoundPlayer {
         let volume = result;
         if (this.isDynamic() && (this.isMuted() || IsAllMuted)) volume = 0;
 
-        if (this.isAudioYoutubePlayer() && this.yPlayer && this.isYoutubePlayerReady()) {
+        if (this.isAudioSoundCloudPlayer() && this.scWidget && this.scReady) {
+            this.scWidget.setVolume(volume * 100);
+        } else if (this.isAudioYoutubePlayer() && this.yPlayer && this.isYoutubePlayerReady()) {
             this.yPlayer.setVolume(volume * 100);
         } else if (this.audioPlayer) {
             this.audioPlayer.volume(volume);
@@ -142,9 +156,41 @@ class SoundPlayer {
     }
 
     create() {
-        const link = getYoutubeUrlId(this.getUrlSound());
+        const scUrl = getSoundCloudUrl(this.getUrlSound());
+        const link = scUrl === "" ? getYoutubeUrlId(this.getUrlSound()) : "";
 
-        if (link === "") {
+        if (scUrl !== "") {
+            this.isSoundCloud = true;
+            this.scReady = false;
+            this.scIsPlaying = false;
+            $("#" + this.div_id).remove();
+            $("body").append(
+                "<iframe id='" + this.div_id + "' src='https://w.soundcloud.com/player/?url=" +
+                encodeURIComponent(scUrl) +
+                "&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=false'" +
+                " style='display:none' allow='autoplay'></iframe>"
+            );
+            this.scWidget = SC.Widget(this.div_id);
+            this.scWidget.bind(SC.Widget.Events.READY, () => {
+                this.scWidget.getCurrentSound((sound) => {
+                    if (sound) this.scDuration = sound.duration / 1000;
+                });
+                this.scWidget.setVolume(0);
+                this.scWidget.play();
+                isReady(this.getName());
+                $.post('https://xsound/events', JSON.stringify({ type: "onLoading", id: this.getName() }));
+            });
+            this.scWidget.bind(SC.Widget.Events.PLAY, () => {
+                this.scIsPlaying = true;
+            });
+            this.scWidget.bind(SC.Widget.Events.PAUSE, () => {
+                this.scIsPlaying = false;
+            });
+            this.scWidget.bind(SC.Widget.Events.FINISH, () => {
+                this.scIsPlaying = false;
+                ended(this.getName());
+            });
+        } else if (link === "") {
             this.isYoutube = false;
 
             this.audioPlayer = new Howl({
@@ -214,6 +260,12 @@ class SoundPlayer {
     }
 
     delete() {
+        if (this.scWidget) {
+            this.scWidget.pause();
+            this.scWidget = null;
+            this.scReady = false;
+            this.scIsPlaying = false;
+        }
         if (this.audioPlayer != null) {
             this.audioPlayer.pause();
             this.audioPlayer.stop();
@@ -241,19 +293,19 @@ class SoundPlayer {
     }
 
     play() {
-        if (!this.isAudioYoutubePlayer()) {
-            if (this.audioPlayer != null) {
-                this.audioPlayer.play();
-            }
+        if (this.isAudioSoundCloudPlayer()) {
+            if (this.scWidget && this.scReady) this.scWidget.play();
+        } else if (!this.isAudioYoutubePlayer()) {
+            if (this.audioPlayer != null) this.audioPlayer.play();
         } else {
-            if (this.isYoutubePlayerReady()) {
-                this.yPlayer.playVideo();
-            }
+            if (this.isYoutubePlayerReady()) this.yPlayer.playVideo();
         }
     }
 
     pause() {
-        if (!this.isAudioYoutubePlayer()) {
+        if (this.isAudioSoundCloudPlayer()) {
+            if (this.scWidget && this.scReady) this.scWidget.pause();
+        } else if (!this.isAudioYoutubePlayer()) {
             if (this.audioPlayer != null) this.audioPlayer.pause();
         } else {
             if (this.isYoutubePlayerReady()) this.yPlayer.pauseVideo();
@@ -261,7 +313,9 @@ class SoundPlayer {
     }
 
     resume() {
-        if (!this.isAudioYoutubePlayer()) {
+        if (this.isAudioSoundCloudPlayer()) {
+            if (this.scWidget && this.scReady) this.scWidget.play();
+        } else if (!this.isAudioYoutubePlayer()) {
             if (this.audioPlayer != null) this.audioPlayer.play();
         } else {
             if (this.isYoutubePlayerReady()) this.yPlayer.playVideo();
@@ -287,7 +341,9 @@ class SoundPlayer {
     }
 
     setTimeStamp(time) {
-        if (!this.isAudioYoutubePlayer()) {
+        if (this.isAudioSoundCloudPlayer()) {
+            if (this.scWidget) this.scWidget.seekTo(time * 1000);
+        } else if (!this.isAudioYoutubePlayer()) {
             this.audioPlayer.seek(time);
         } else {
             this.yPlayer.seekTo(time);
@@ -295,7 +351,8 @@ class SoundPlayer {
     }
 
     isPlaying() {
+        if (this.isAudioSoundCloudPlayer()) return this.scReady && this.scIsPlaying;
         if (this.isAudioYoutubePlayer()) return this.isYoutubePlayerReady() && this.yPlayer.getPlayerState() == 1;
-        else return this.audioPlayer != null && this.audioPlayer.playing();
+        return this.audioPlayer != null && this.audioPlayer.playing();
     }
 }
